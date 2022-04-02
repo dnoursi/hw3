@@ -25,7 +25,14 @@ class UpSampleConv2D(jit.ScriptModule):
         # 3. Apply convolution.
         # Hint for 2. look at
         # https://pytorch.org/docs/master/generated/torch.nn.PixelShuffle.html#torch.nn.PixelShuffle
-        pass
+        # pass
+
+        # shape is batchsize, numchannels, h, w
+
+        x = torch.concat([x for _ in range(self.upscale_factor**2)], axis = 1) # axis = 1 ?
+        # x = x.view(x.size(0), x.size(1), x.size(2) * upscale_factor, x.size(3) * upscale_factor)
+        x = nn.PixelShuffle(upscale_factor)(x)
+        x = nn.Conv2d(self.input_channels, self.input_channels * self.upscale_factor**2, self.kernel_size)(x)
 
 
 class DownSampleConv2D(jit.ScriptModule):
@@ -44,6 +51,11 @@ class DownSampleConv2D(jit.ScriptModule):
         # 3. Average the images into one and apply convolution.
         # Hint for 1. look at
         # https://pytorch.org/docs/master/generated/torch.nn.PixelUnshuffle.html#torch.nn.PixelUnshuffle
+        x = nn.PixelUnshuffle(self.upscale_factor)(x)
+        # x = x.mean(axis = 1)
+        x = torch.split(x, upscale_factor**2, dim = 1)
+        x = torch.mean(x)
+        x = nn.Conv2d(self.input_channels, self.input_channels, self.kernel_size)(x)
         pass
 
 
@@ -68,12 +80,23 @@ class ResBlockUp(jit.ScriptModule):
 
     def __init__(self, input_channels, kernel_size=3, n_filters=128):
         super(ResBlockUp, self).__init__()
+        self.layers = Sequential(
+            (0): BatchNorm2d(in_channels, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            (1): ReLU()
+            (2): Conv2d(in_channels, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+            (3): BatchNorm2d(n_filters, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            (4): ReLU())
+        # self.residual = Conv2d(n_filters, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+        # self.shortcut = Conv2d(in_channels, n_filters, kernel_size=(1, 1), stride=(1, 1))
+        self.residual = UpSampleConv2D(n_filters, n_filters)
+        self.shortcut = UpSampleConv2D(input_channels, n_filters)
 
     @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward through the layers and implement a residual connection.
         # Apply self.residual to the output of self.layers and apply self.shortcut to the original input.
-        pass
+        return torch.concat([self.residual(self.layers(x)), self.shortcut(x)])
+        # pass
 
 
 class ResBlockDown(jit.ScriptModule):
@@ -96,12 +119,19 @@ class ResBlockDown(jit.ScriptModule):
 
     def __init__(self, input_channels, kernel_size=3, n_filters=128):
         super(ResBlockDown, self).__init__()
+        self.layers = Sequential(
+            (0): ReLU()
+            (1): Conv2d(in_channels, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+            (2): ReLU())
+        self.residual = DownSampleConv2D(n_filters, n_filters)
+        self.shortcut = DownSampleConv2D(input_channels, n_filters)
 
     @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward through the layers and implement a residual connection.
         # Apply self.residual to the output of self.layers and apply self.shortcut to the original input.
-        pass
+        return torch.concat([self.residual(self.layers(x)), self.shortcut(x)])
+        # pass
 
 
 class ResBlock(jit.ScriptModule):
@@ -119,10 +149,16 @@ class ResBlock(jit.ScriptModule):
 
     def __init__(self, input_channels, kernel_size=3, n_filters=128):
         super(ResBlock, self).__init__()
+        self.layers =  Sequential(
+            (0): ReLU()
+            (1): Conv2d(in_channels, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+            (2): ReLU()
+            (3): Conv2d(n_filters, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)))
 
     @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward the conv layers. Don't forget the residual connection!
+        return torch.concat([self.layers(x), x])
         pass
 
 
@@ -187,7 +223,10 @@ class Generator(jit.ScriptModule):
 
     def __init__(self, starting_image_size=4):
         super(Generator, self).__init__()
+        self.dense = Linear(in_features=128, out_features=2048, bias=True)
+        self.layers = Sequential(ResBlockUp(),ResBlockUp(),ResBlockUp())
 
+        
     @jit.script_method
     def forward_given_samples(self, z):
         # TODO 1.1: forward the generator assuming a set of samples z have been passed in.
