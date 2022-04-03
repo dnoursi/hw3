@@ -1,3 +1,4 @@
+from email import generator
 from glob import glob
 import os
 import torch
@@ -12,7 +13,7 @@ def build_transforms():
     # TODO 1.2: Add two transforms:
     # 1. Convert input image to tensor.
     # 2. Rescale input image to be between -1 and 1.
-    ds_transforms = transforms.Compose([..., ...])
+    ds_transforms = transforms.Compose([torch.tensor, transforms.Normalize])
     return ds_transforms
 
 
@@ -24,10 +25,12 @@ def get_optimizers_and_schedulers(gen, disc):
     # The learning rate for the discriminator should be decayed to 0 over 500K steps.
     # The learning rate for the generator should be decayed to 0 over 100K steps.
 
-    optim_discriminator = ...
-    scheduler_discriminator = ...
-    optim_generator = ...
-    scheduler_generator = ...
+    optim_discriminator  = torch.optim.Adam([0., 0.9], lr=0.0002)
+    scheduler_discriminator = torch.optim.lr_scheduler.StepLR(
+        optim_discriminator, step_size = 5e5, gamma = 0.9, last_epoch = 10)
+    optim_generator  = torch.optim.Adam([0., 0.9], lr=0.0002)
+    scheduler_generator = torch.optim.lr_scheduler.StepLR(
+        optim_generator, step_size = 1e5, gamma = 0.9, last_epoch = 10)
     return (
         optim_discriminator,
         scheduler_discriminator,
@@ -92,14 +95,16 @@ def train_model(
                 # 1. Compute generator output -> the number of samples must match the batch size.
                 # 2. Compute discriminator output on the train batch.
                 # 3. Compute the discriminator output on the generated data.
-                discrim_real = ...
-                discrim_fake = ...
+                fake_data = gen.forward()
+                discrim_real = disc.forward(train_batch)
+                discrim_fake = gen.forward(fake_data)
 
                 # TODO: 1.5 Compute the interpolated batch and run the discriminator on it.
                 # To compute interpolated data, draw eps ~ Uniform(0, 1)
                 # interpolated data = eps * fake_data + (1-eps) * real_data
-                interp = None
-                discrim_interp = None
+                eps = torch.normal(0,1,1)
+                interp = eps * fake_data + (1-eps) * train_batch
+                discrim_interp = disc.forward(interp)
 
                 discriminator_loss = disc_loss_fn(
                     discrim_real, discrim_fake, discrim_interp, interp, lamb
@@ -112,7 +117,7 @@ def train_model(
             if iters % 5 == 0:
                 with torch.cuda.amp.autocast():
                     # TODO 1.2: Compute samples and evaluate under discriminator.
-                    discrim_fake = ...
+                    discrim_fake = gen.forward(fake_data)
 
                     generator_loss = gen_loss_fn(discrim_fake)
                 optim_generator.zero_grad(set_to_none=True)
@@ -124,7 +129,7 @@ def train_model(
                 with torch.no_grad():
                     with torch.cuda.amp.autocast():
                         # TODO 1.2: Generate samples using the generator, make sure they lie in the range [0, 1].
-                        generated_samples = ...
+                        generated_samples = gen.forward()
 
                     save_image(
                         generated_samples.data.float(),

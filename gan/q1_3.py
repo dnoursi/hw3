@@ -12,6 +12,7 @@ def compute_discriminator_loss(
 ):
     # TODO 1.3.1: Implement GAN loss for discriminator.
     # Do not use discrim_interp, interp, lamb. They are placeholders for Q1.5.
+    torch.log(discrim_real) + torch.log(1. - discrim_fake)
     pass
 
 
