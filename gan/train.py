@@ -88,6 +88,7 @@ def train_model(
     fids_list = []
     iters_list = []
     while iters < num_iterations:
+        print("looping", iters)
         for train_batch in train_loader:
             with torch.cuda.amp.autocast():
                 train_batch = train_batch.cuda()
