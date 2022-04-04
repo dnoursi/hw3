@@ -13,7 +13,8 @@ def build_transforms():
     # TODO 1.2: Add two transforms:
     # 1. Convert input image to tensor.
     # 2. Rescale input image to be between -1 and 1.
-    ds_transforms = transforms.Compose([torch.tensor, transforms.Normalize])
+    # return transforms.Compose([])
+    ds_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize(0.,1.)])
     return ds_transforms
 
 
@@ -25,12 +26,12 @@ def get_optimizers_and_schedulers(gen, disc):
     # The learning rate for the discriminator should be decayed to 0 over 500K steps.
     # The learning rate for the generator should be decayed to 0 over 100K steps.
 
-    optim_discriminator  = torch.optim.Adam([0., 0.9], lr=0.0002)
+    optim_discriminator  = torch.optim.Adam(disc.parameters(), betas=[0., 0.9], lr=0.0002)
     scheduler_discriminator = torch.optim.lr_scheduler.StepLR(
-        optim_discriminator, step_size = 5e5, gamma = 0.9, last_epoch = 10)
-    optim_generator  = torch.optim.Adam([0., 0.9], lr=0.0002)
+        optim_discriminator, step_size = 5e5, gamma = 0.9) #, last_epoch = 10) #, initial_lr=0.0002)
+    optim_generator  = torch.optim.Adam(gen.parameters(), betas=[0., 0.9], lr=0.0002)
     scheduler_generator = torch.optim.lr_scheduler.StepLR(
-        optim_generator, step_size = 1e5, gamma = 0.9, last_epoch = 10)
+        optim_generator, step_size = 1e5, gamma = 0.9) #, last_epoch = 10)
     return (
         optim_discriminator,
         scheduler_discriminator,
@@ -90,6 +91,7 @@ def train_model(
     while iters < num_iterations:
         print("looping", iters)
         for train_batch in train_loader:
+            print("looping")
             with torch.cuda.amp.autocast():
                 train_batch = train_batch.cuda()
                 # TODO 1.2: compute generator outputs and discriminator outputs
@@ -164,6 +166,9 @@ def train_model(
                     )
             scaler.update()
             iters += 1
+            # del train_batch
+            # torch.cuda.empty_cache()
+            
     fid = get_fid(
         gen,
         dataset_name="cub",

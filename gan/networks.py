@@ -23,7 +23,8 @@ class UpSampleConv2D(nn.Module): # jit.ScriptModule):
         # self.kernel_size = 
         self.pixelshuffle = nn.PixelShuffle(self.upscale_factor)
         # self.conv = nn.Conv2d(self.input_channels, self.input_channels * self.upscale_factor**2, self.kernel_size)
-        self.conv = nn.Conv2d(input_channels, input_channels * self.upscale_factor**2, kernel_size)
+        # self.conv = nn.Conv2d(input_channels, input_channels * self.upscale_factor**2, kernel_size)
+        self.conv = nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size)
 
     # @jit.script_method
     def forward(self, x):
@@ -102,8 +103,8 @@ class ResBlockUp(nn.Module): # jit.ScriptModule):
             nn.ReLU())
         # self.residual = Conv2d(n_filters, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
         # self.shortcut = Conv2d(in_channels, n_filters, kernel_size=(1, 1), stride=(1, 1))
-        self.residual = UpSampleConv2D(n_filters, n_filters)
-        self.shortcut = UpSampleConv2D(input_channels, n_filters)
+        self.residual = UpSampleConv2D(n_filters)
+        self.shortcut = UpSampleConv2D(input_channels)
 
     # @jit.script_method
     def forward(self, x):
@@ -175,7 +176,7 @@ class ResBlock(nn.Module): # jit.ScriptModule):
         super(ResBlock, self).__init__()
         self.layers =  Sequential(
             nn.ReLU(),
-            nn.Conv2d(in_channels, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+            nn.Conv2d(input_channels, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
             nn.ReLU(),
             nn.Conv2d(n_filters, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)))
 
@@ -262,13 +263,18 @@ class Generator(nn.Module): # jit.ScriptModule):
     def forward_given_samples(self, z):
         # TODO 1.1: forward the generator assuming a set of samples z have been passed in.
         # Don't forget to re-shape the output of the dense layer into an image with the appropriate size!
-        return self.layers(z) # TODO reshape!?
+        result = self.dense(z).view(1,1,16, 128)
+        print(result.shape)
+        result = self.layers(result)
+        print(result.shape)
+        return self.layers(z)#.view() # TODO reshape!?
         # pass
 
     # @jit.script_method
     def forward(self, n_samples: int = 1024):
         # TODO 1.1: Generate n_samples latents ..
-        samples = torch.normal(0., 1., n_samples)
+        n_samples = 128
+        samples = torch.normal(torch.zeros(n_samples), torch.ones(n_samples)).cuda()
         # .. and forward through the network.
         samples = self.forward_given_samples(samples)
         return samples
@@ -333,8 +339,8 @@ class Discriminator(nn.Module): # jit.ScriptModule):
 
     def __init__(self):
         super(Discriminator, self).__init__()
-        self.layers = nn.Sequential(ResBlockDown(),ResBlockDown(),ResBlock(),ResBlock(), nn.ReLU())
-        self.dense = nn.Linear()
+        self.layers = nn.Sequential(ResBlockDown(128),ResBlockDown(128),ResBlock(128),ResBlock(128), nn.ReLU())
+        self.dense = Linear(in_features=128, out_features=1, bias=True)
 
     # @jit.script_method
     def forward(self, x):

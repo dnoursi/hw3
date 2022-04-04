@@ -23,18 +23,26 @@ def compute_generator_loss(discrim_fake):
     pass
 
 
+print("printing!")
 if __name__ == "__main__":
+    print("q13 first print!")
     gen = Generator().cuda().to(memory_format=torch.channels_last) # 128
+    # gen = Generator() #.cuda().to(memory_format=torch.channels_last) # 128
+    # print(gen)
+    # gen = gen.cuda()
+    print(gen)
+    
     disc = Discriminator().cuda().to(memory_format=torch.channels_last)
     prefix = "data_gan/"
     os.makedirs(prefix, exist_ok=True)
 
     # TODO 1.3.2: Run this line of code.
+    print("q13 second print!")
     train_model(
         gen,
         disc,
         num_iterations=int(3e4),
-        batch_size=1,
+        batch_size=32,
         prefix=prefix,
         gen_loss_fn=compute_generator_loss,
         disc_loss_fn=compute_discriminator_loss,
