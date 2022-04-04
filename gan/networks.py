@@ -3,10 +3,10 @@ import torch.jit as jit
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential
-import ipdb
+# import ipdb
 
-# class UpSampleConv2D(): # jit.ScriptModule):
-class UpSampleConv2D(jit.ScriptModule):
+class UpSampleConv2D(nn.Module): # jit.ScriptModule):
+# class UpSampleConv2D(jit.ScriptModule):
     # TODO 1.1: Implement nearest neighbor upsampling + conv layer
 
     def __init__(
@@ -25,7 +25,7 @@ class UpSampleConv2D(jit.ScriptModule):
         # self.conv = nn.Conv2d(self.input_channels, self.input_channels * self.upscale_factor**2, self.kernel_size)
         self.conv = nn.Conv2d(input_channels, input_channels * self.upscale_factor**2, kernel_size)
 
-    @jit.script_method
+    # @jit.script_method
     def forward(self, x):
         # TODO 1.1: Implement nearest neighbor upsampling.
         # 1. Duplicate x channel wise upscale_factor^2 times.
@@ -37,6 +37,8 @@ class UpSampleConv2D(jit.ScriptModule):
 
         # shape is batchsize, numchannels, h, w
 
+        # repeat interleave upsample
+
         x = torch.concat([x for _ in range(int(self.upscale_factor**2))], dim = 1) # axis = 1 ?
         # x = x.view(x.size(0), x.size(1), x.size(2) * upscale_factor, x.size(3) * upscale_factor)
         x = self.pixelshuffle(x)
@@ -44,8 +46,8 @@ class UpSampleConv2D(jit.ScriptModule):
         x = self.conv(x)
         return x
 
-# class DownSampleConv2D(): # jit.ScriptModule):
-class DownSampleConv2D(jit.ScriptModule):
+class DownSampleConv2D(nn.Module): # jit.ScriptModule):
+# class DownSampleConv2D(jit.ScriptModule):
     # TODO 1.1: Implement spatial mean pooling + conv layer
 
     def __init__(
@@ -53,7 +55,7 @@ class DownSampleConv2D(jit.ScriptModule):
     ):
         super(DownSampleConv2D, self).__init__()
 
-    @jit.script_method
+    # @jit.script_method
     def forward(self, x):
         # TODO 1.1: Implement spatial mean pooling.
         # 1. Re-arrange to form an image of shape: (batch x channel * upscale_factor^2 x height x width).
@@ -70,8 +72,8 @@ class DownSampleConv2D(jit.ScriptModule):
         # pass
 
 
-# class ResBlockUp(): # jit.ScriptModule):
-class ResBlockUp(jit.ScriptModule):
+class ResBlockUp(nn.Module): # jit.ScriptModule):
+# class ResBlockUp(jit.ScriptModule):
     # TODO 1.1: Impement Residual Block Upsampler.
     """
     ResBlockUp(
@@ -103,7 +105,7 @@ class ResBlockUp(jit.ScriptModule):
         self.residual = UpSampleConv2D(n_filters, n_filters)
         self.shortcut = UpSampleConv2D(input_channels, n_filters)
 
-    @jit.script_method
+    # @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward through the layers and implement a residual connection.
         # Apply self.residual to the output of self.layers and apply self.shortcut to the original input.
@@ -118,8 +120,8 @@ class ResBlockUp(jit.ScriptModule):
         # pass
 
 
-# class ResBlockDown(): # jit.ScriptModule):
-class ResBlockDown(jit.ScriptModule):
+class ResBlockDown(nn.Module): # jit.ScriptModule):
+# class ResBlockDown(jit.ScriptModule):
     # TODO 1.1: Impement Residual Block Downsampler.
     """
     ResBlockDown(
@@ -146,7 +148,7 @@ class ResBlockDown(jit.ScriptModule):
         self.residual = DownSampleConv2D(n_filters, n_filters)
         self.shortcut = DownSampleConv2D(input_channels, n_filters)
 
-    @jit.script_method
+    # @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward through the layers and implement a residual connection.
         # Apply self.residual to the output of self.layers and apply self.shortcut to the original input.
@@ -155,8 +157,8 @@ class ResBlockDown(jit.ScriptModule):
         # pass
 
 
-# class ResBlock(): # jit.ScriptModule):
-class ResBlock(jit.ScriptModule):
+class ResBlock(nn.Module): # jit.ScriptModule):
+# class ResBlock(jit.ScriptModule):
     # TODO 1.1: Impement Residual Block as described below.
     """
     ResBlock(
@@ -177,7 +179,7 @@ class ResBlock(jit.ScriptModule):
             nn.ReLU(),
             nn.Conv2d(n_filters, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)))
 
-    @jit.script_method
+    # @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward the conv layers. Don't forget the residual connection!
         # return torch.concat([self.layers(x), x])
@@ -185,8 +187,9 @@ class ResBlock(jit.ScriptModule):
         # pass
 
 
+class Generator(nn.Module): # jit.ScriptModule):
 # class Generator(): # jit.ScriptModule):
-class Generator(jit.ScriptModule):
+# class Generator(jit.ScriptModule):
     # TODO 1.1: Impement Generator. Follow the architecture described below:
     """
     Generator(
@@ -255,14 +258,14 @@ class Generator(jit.ScriptModule):
         nn.Tanh())
 
         
-    @jit.script_method
+    # @jit.script_method
     def forward_given_samples(self, z):
         # TODO 1.1: forward the generator assuming a set of samples z have been passed in.
         # Don't forget to re-shape the output of the dense layer into an image with the appropriate size!
         return self.layers(z) # TODO reshape!?
         # pass
 
-    @jit.script_method
+    # @jit.script_method
     def forward(self, n_samples: int = 1024):
         # TODO 1.1: Generate n_samples latents ..
         samples = torch.normal(0., 1., n_samples)
@@ -273,8 +276,9 @@ class Generator(jit.ScriptModule):
         # pass
 
 
+class Discriminator(nn.Module): # jit.ScriptModule):
 # class Discriminator(): # jit.ScriptModule):
-class Discriminator(jit.ScriptModule):
+# class Discriminator(jit.ScriptModule):
     # TODO 1.1: Impement Discriminator. Follow the architecture described below:
     """
     Discriminator(
@@ -332,7 +336,7 @@ class Discriminator(jit.ScriptModule):
         self.layers = nn.Sequential(ResBlockDown(),ResBlockDown(),ResBlock(),ResBlock(), nn.ReLU())
         self.dense = nn.Linear()
 
-    @jit.script_method
+    # @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward the discriminator assuming a batch of images have been passed in.
         # Make sure to flatten the output of the convolutional layers and sum across the image dimensions before passing to the output layer!
