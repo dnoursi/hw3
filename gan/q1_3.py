@@ -6,6 +6,8 @@ from networks import Discriminator, Generator
 import torch.nn.functional as F
 from train import train_model
 
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = ("cuda" if torch.cuda.is_available() else "cpu")
 
 def compute_discriminator_loss(
     discrim_real, discrim_fake, discrim_interp, interp, lamb
@@ -14,25 +16,26 @@ def compute_discriminator_loss(
     # Do not use discrim_interp, interp, lamb. They are placeholders for Q1.5.
 
     # need both values between 0 and 1, so use sigmoid, negate, mean
-    torch.log(discrim_real) + torch.log(1. - discrim_fake)
+    return -(torch.log(discrim_real) + torch.log(1. - discrim_fake)).mean()
     pass
 
 
 def compute_generator_loss(discrim_fake):
     # TODO 1.3.1: Implement GAN loss for generator.
+    return torch.log(1. - discrim_fake).mean()
     pass
 
 
-print("printing!")
 if __name__ == "__main__":
     print("q13 first print!")
-    gen = Generator().cuda().to(memory_format=torch.channels_last) # 128
+    gen = Generator().to(device=("cuda" if torch.cuda.is_available() else "cpu")).to(memory_format=torch.channels_last) # 128
     # gen = Generator() #.cuda().to(memory_format=torch.channels_last) # 128
     # print(gen)
     # gen = gen.cuda()
     print(gen)
     
-    disc = Discriminator().cuda().to(memory_format=torch.channels_last)
+    disc = Discriminator().to(device=("cuda" if torch.cuda.is_available() else "cpu")).to(memory_format=torch.channels_last)
+    print(disc)
     prefix = "data_gan/"
     os.makedirs(prefix, exist_ok=True)
 

@@ -3,7 +3,7 @@ import torch.jit as jit
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential
-# import ipdb
+import ipdb
 
 class UpSampleConv2D(nn.Module): # jit.ScriptModule):
 # class UpSampleConv2D(jit.ScriptModule):
@@ -24,7 +24,7 @@ class UpSampleConv2D(nn.Module): # jit.ScriptModule):
         self.pixelshuffle = nn.PixelShuffle(self.upscale_factor)
         # self.conv = nn.Conv2d(self.input_channels, self.input_channels * self.upscale_factor**2, self.kernel_size)
         # self.conv = nn.Conv2d(input_channels, input_channels * self.upscale_factor**2, kernel_size)
-        self.conv = nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size)
+        self.conv = nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, padding=padding)
 
     # @jit.script_method
     def forward(self, x):
@@ -40,7 +40,9 @@ class UpSampleConv2D(nn.Module): # jit.ScriptModule):
 
         # repeat interleave upsample
 
-        x = torch.concat([x for _ in range(int(self.upscale_factor**2))], dim = 1) # axis = 1 ?
+        # x = torch.concat([x for _ in range(int(self.upscale_factor**2))], dim = 1) # axis = 1 ?
+        # repeat_interleave
+        x = torch.repeat_interleave(x, self.upscale_factor**2, dim=1)
         # x = x.view(x.size(0), x.size(1), x.size(2) * upscale_factor, x.size(3) * upscale_factor)
         x = self.pixelshuffle(x)
         # x = nn.Conv2d(self.input_channels, self.input_channels * self.upscale_factor**2, self.kernel_size)(x)
@@ -52,9 +54,12 @@ class DownSampleConv2D(nn.Module): # jit.ScriptModule):
     # TODO 1.1: Implement spatial mean pooling + conv layer
 
     def __init__(
-        self, input_channels, kernel_size=3, n_filters=128, downscale_ratio=2, padding=0
+        self, input_channels, n_filters=128, kernel_size=3, downscale_ratio=2, padding=0
     ):
         super(DownSampleConv2D, self).__init__()
+        self.upscale_factor = downscale_ratio
+        self.conv = nn.Conv2d(input_channels, n_filters, kernel_size= kernel_size, padding=padding)
+
 
     # @jit.script_method
     def forward(self, x):
@@ -66,9 +71,15 @@ class DownSampleConv2D(nn.Module): # jit.ScriptModule):
         # https://pytorch.org/docs/master/generated/torch.nn.PixelUnshuffle.html#torch.nn.PixelUnshuffle
         x = nn.PixelUnshuffle(self.upscale_factor)(x)
         # x = x.mean(axis = 1)
-        x = torch.split(x, upscale_factor**2, dim = 1)
-        x = torch.mean(x)
-        x = nn.Conv2d(self.input_channels, self.input_channels, self.kernel_size)(x)
+        # x = torch.split(x, upscale_factor**2, dim = 1)
+        # https://stackoverflow.com/questions/38722073/is-there-any-function-in-python-which-can-perform-the-inverse-of-numpy-repeat-fu
+        result = []
+        usfs = self.upscale_factor**2
+        for i in range(0, x.size(1), usfs):
+            result.append(torch.mean(x[:,i:i+usfs], dim = 1, keepdim = True))
+        # x = torch.mean([x[:,i::self.upscale_factor**2] for i in range(self.upscale_factor**2)])
+        x = torch.cat(result, dim = 1)
+        x = self.conv(x)
         return x
         # pass
 
@@ -103,8 +114,8 @@ class ResBlockUp(nn.Module): # jit.ScriptModule):
             nn.ReLU())
         # self.residual = Conv2d(n_filters, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
         # self.shortcut = Conv2d(in_channels, n_filters, kernel_size=(1, 1), stride=(1, 1))
-        self.residual = UpSampleConv2D(n_filters)
-        self.shortcut = UpSampleConv2D(input_channels)
+        self.residual = UpSampleConv2D(n_filters, kernel_size=3, padding=1)
+        self.shortcut = UpSampleConv2D(input_channels, kernel_size=1, padding=0)
 
     # @jit.script_method
     def forward(self, x):
@@ -144,10 +155,10 @@ class ResBlockDown(nn.Module): # jit.ScriptModule):
         super(ResBlockDown, self).__init__()
         self.layers = Sequential(
             nn.ReLU(),
-            nn.Conv2d(input_channels, n_filters, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+            nn.Conv2d(input_channels, n_filters, kernel_size=kernel_size, stride=(1, 1), padding=(1, 1)),
             nn.ReLU())
-        self.residual = DownSampleConv2D(n_filters, n_filters)
-        self.shortcut = DownSampleConv2D(input_channels, n_filters)
+        self.residual = DownSampleConv2D(n_filters, n_filters=n_filters, kernel_size=3, padding=1)
+        self.shortcut = DownSampleConv2D(input_channels, n_filters=n_filters, kernel_size=1, padding=0)
 
     # @jit.script_method
     def forward(self, x):
@@ -257,24 +268,27 @@ class Generator(nn.Module): # jit.ScriptModule):
         nn.ReLU(),
         nn.Conv2d(128, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
         nn.Tanh())
+        self.starting_image_size = starting_image_size
 
         
     # @jit.script_method
     def forward_given_samples(self, z):
         # TODO 1.1: forward the generator assuming a set of samples z have been passed in.
         # Don't forget to re-shape the output of the dense layer into an image with the appropriate size!
-        result = self.dense(z).view(1,1,16, 128)
-        print(result.shape)
+        result = self.dense(z).view(z.size(0), z.size(1), self.starting_image_size, self.starting_image_size)
+        print("fgs1", result.shape)
         result = self.layers(result)
-        print(result.shape)
-        return self.layers(z)#.view() # TODO reshape!?
+        print("fgs2", result.shape)
+        return result
+        # return self.layers(z)#.view() # TODO reshape!?
         # pass
 
     # @jit.script_method
     def forward(self, n_samples: int = 1024):
         # TODO 1.1: Generate n_samples latents ..
-        n_samples = 128
-        samples = torch.normal(torch.zeros(n_samples), torch.ones(n_samples)).cuda()
+        # print(n_samples, 128)
+        samples = torch.randn((n_samples, 128,)) # torch.normal(torch.zeros((n_samples, 128)), torch.ones((n_samples, 128))).to(device = ("cuda" if torch.cuda.is_available() else "cpu"))
+        # todo say .half()?
         # .. and forward through the network.
         samples = self.forward_given_samples(samples)
         return samples
@@ -339,12 +353,17 @@ class Discriminator(nn.Module): # jit.ScriptModule):
 
     def __init__(self):
         super(Discriminator, self).__init__()
-        self.layers = nn.Sequential(ResBlockDown(128),ResBlockDown(128),ResBlock(128),ResBlock(128), nn.ReLU())
+        self.layers = nn.Sequential(ResBlockDown(3),ResBlockDown(128),ResBlock(128),ResBlock(128), nn.ReLU())
         self.dense = Linear(in_features=128, out_features=1, bias=True)
 
     # @jit.script_method
     def forward(self, x):
         # TODO 1.1: Forward the discriminator assuming a batch of images have been passed in.
         # Make sure to flatten the output of the convolutional layers and sum across the image dimensions before passing to the output layer!
-        return self.dense(self.layers(x))
+
+        # ipdb.set_trace()
+
+        x = self.layers(x)
+        x = x.sum((2,3))
+        return self.dense(x)
         # pass

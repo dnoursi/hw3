@@ -36,14 +36,18 @@ def interpolate_latent_space(gen, path):
     # Forward the samples through the generator.
     # Save out an image holding all 100 samples.
     # Use torchvision.utils.save_image to save out the visualization.
-    generated = torch.normal(torch.zeros(128),1., 100)
+    n=100
+    generated = torch.normal(torch.zeros(128),1., n)
     for i in [0,1]:
-        gmin = generated[:,i].min()
-        gmax = generated[:,i].max()
-        r = gmax - gmin
-        generated[:, i] = (2./r)  * (generated[:, i] - gmin) - 1
+        generated[:, i] = torch.linspace(-1.,1.,n)
+    #     gmin = generated[:,i].min()
+    #     gmax = generated[:,i].max()
+    #     r = gmax - gmin
+    #     generated[:, i] = (2./r)  * (generated[:, i] - gmin) - 1
+
     
     forwarded = gen.forward(generated)
+    return forwarded
     
     
     pass
