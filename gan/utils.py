@@ -1,6 +1,8 @@
 import torch
 from cleanfid import fid
 from matplotlib import pyplot as plt
+import torchvision
+# from torchvision.utils import save_image
 
 
 def save_plot(x, y, xlabel, ylabel, title, filename):

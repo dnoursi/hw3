@@ -4,14 +4,18 @@ import torch
 
 from networks import Discriminator, Generator
 from train import train_model
-
+import ipdb
 
 def compute_discriminator_loss(
     discrim_real, discrim_fake, discrim_interp, interp, lamb
 ):
     # TODO 1.5.1: Implement WGAN-GP loss for discriminator.
     # loss = E[D(fake_data)] - E[D(real_data)] + lambda * E[(|| grad wrt interpolated_data (D(interpolated_data))|| - 1)^2]
-    # loss = 
+    gradd = torch.autograd.grad((discrim_interp).mean(), interp)[0]
+    # ipdb.set_trace()
+    loss_e = (gradd - 1.) ** 2
+    # loss_e = (discrim_interp.grad() - 1)**2
+    loss = discrim_fake - discrim_real + lamb * (loss_e)
     return loss
 
 

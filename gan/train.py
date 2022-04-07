@@ -114,7 +114,8 @@ def train_model(
                 if fake_data.shape != train_batch.shape:
                     ipdb.set_trace()
                 eps = torch.randn((1,)).item()#.to(device = ("cuda" if torch.cuda.is_available() else "cpu")) # torch.normal(0.,1.,(1,))
-                interp = eps * fake_data.detach() + (1-eps) * train_batch
+                # interp = eps * fake_data.detach() + (1-eps) * train_batch
+                interp = eps * fake_data + (1-eps) * train_batch
                 discrim_interp = disc.forward(interp)
 
                 discriminator_loss = disc_loss_fn(
@@ -129,6 +130,7 @@ def train_model(
                 # with torch.cuda.amp.autocast(enabled=False):
                 with torch.cuda.amp.autocast():
                     # TODO 1.2: Compute samples and evaluate under discriminator.
+                    # fake_data = gen.forward(train_batch.shape[0])
                     # fake_data = gen.forward()
                     discrim_fake = disc.forward(fake_data)
                     generator_loss = gen_loss_fn(discrim_fake)
