@@ -37,7 +37,8 @@ def interpolate_latent_space(gen, path):
     # Save out an image holding all 100 samples.
     # Use torchvision.utils.save_image to save out the visualization.
     n=100
-    generated = torch.normal(torch.zeros(128),1., n)
+    generated = torch.randn((n,128,)).to(device = ("cuda" if torch.cuda.is_available() else "cpu")) 
+    # torch.normal(torch.zeros(128),1., n)
     for i in [0,1]:
         generated[:, i] = torch.linspace(-1.,1.,n)
     #     gmin = generated[:,i].min()
@@ -46,7 +47,9 @@ def interpolate_latent_space(gen, path):
     #     generated[:, i] = (2./r)  * (generated[:, i] - gmin) - 1
 
     
-    forwarded = gen.forward(generated)
+    forwarded = gen.forward_given_samples(generated)
+    forwarded = (forwarded + 1.)/2
+    torchvision.utils.save_image(forwarded.data.float(), path,nrow=10)
     return forwarded
     
     

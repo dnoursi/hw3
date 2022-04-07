@@ -16,14 +16,23 @@ def compute_discriminator_loss(
     # Do not use discrim_interp, interp, lamb. They are placeholders for Q1.5.
 
     # need both values between 0 and 1, so use sigmoid, negate, mean
-    return -(torch.log(discrim_real) + torch.log(1. - discrim_fake)).mean()
-    pass
+    loss = F.binary_cross_entropy_with_logits(discrim_real, torch.ones_like(discrim_real)) 
+    loss += F.binary_cross_entropy_with_logits(discrim_fake, torch.zeros_like(discrim_fake))
+    loss = loss.mean()
+    return - loss
+    # return - nn.BCEWithLogitsLoss(real, ones) (fake,zeros)
+    # return -(torch.log(discrim_real) + torch.log(1. - discrim_fake)).mean()
+    # pass
 
 
 def compute_generator_loss(discrim_fake):
     # TODO 1.3.1: Implement GAN loss for generator.
-    return torch.log(1. - discrim_fake).mean()
-    pass
+    # return torch.log(1. - discrim_fake).mean()
+    # bce_logits(real)
+    loss = F.binary_cross_entropy_with_logits(discrim_fake, torch.zeros_like(discrim_fake))
+    loss = loss.mean()
+    return loss
+    # pass
 
 
 if __name__ == "__main__":
@@ -45,7 +54,7 @@ if __name__ == "__main__":
         gen,
         disc,
         num_iterations=int(3e4),
-        batch_size=32,
+        batch_size=256,
         prefix=prefix,
         gen_loss_fn=compute_generator_loss,
         disc_loss_fn=compute_discriminator_loss,

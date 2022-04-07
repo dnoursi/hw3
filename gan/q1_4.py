@@ -12,17 +12,23 @@ def compute_discriminator_loss(
 ):
     # TODO 1.4.1: Implement LSGAN loss for discriminator.
     # Do not use discrim_interp, interp, lamb. They are placeholders for Q1.5.
-    pass
+    loss = ((discrim_real - 1.)**2 + discrim_fake**2) /2.
+    loss = loss.mean()
+    return loss
+    # pass
 
 
 def compute_generator_loss(discrim_fake):
     # TODO 1.4.1: Implement LSGAN loss for generator.
-    pass
+    loss = (discrim_fake - 1.)**2 / 2.
+    loss = loss.mean()
+    return loss
+    # pass
 
 
 if __name__ == "__main__":
-    gen = Generator().cuda().to(memory_format=torch.channels_last)
-    disc = Discriminator().cuda().to(memory_format=torch.channels_last)
+    gen = Generator().to(device=("cuda" if torch.cuda.is_available() else "cpu")).to(memory_format=torch.channels_last)
+    disc = Discriminator().to(device=("cuda" if torch.cuda.is_available() else "cpu")).to(memory_format=torch.channels_last)
     prefix = "data_ls_gan/"
     os.makedirs(prefix, exist_ok=True)
 

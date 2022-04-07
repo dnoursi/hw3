@@ -73,6 +73,11 @@ class DownSampleConv2D(nn.Module): # jit.ScriptModule):
         # x = x.mean(axis = 1)
         # x = torch.split(x, upscale_factor**2, dim = 1)
         # https://stackoverflow.com/questions/38722073/is-there-any-function-in-python-which-can-perform-the-inverse-of-numpy-repeat-fu
+        x = x.reshape(x.size(0), -1, int(self.upscale_factor**2), x.size(2), x.size(3))
+        x = x.mean(dim=2)
+        x = self.conv(x)
+        return x
+        
         result = []
         usfs = self.upscale_factor**2
         for i in range(0, x.size(1), usfs):
@@ -276,9 +281,9 @@ class Generator(nn.Module): # jit.ScriptModule):
         # TODO 1.1: forward the generator assuming a set of samples z have been passed in.
         # Don't forget to re-shape the output of the dense layer into an image with the appropriate size!
         result = self.dense(z).view(z.size(0), z.size(1), self.starting_image_size, self.starting_image_size)
-        print("fgs1", result.shape)
+        # print("fgs1", result.shape)
         result = self.layers(result)
-        print("fgs2", result.shape)
+        # print("fgs2", result.shape)
         return result
         # return self.layers(z)#.view() # TODO reshape!?
         # pass
@@ -287,9 +292,12 @@ class Generator(nn.Module): # jit.ScriptModule):
     def forward(self, n_samples: int = 1024):
         # TODO 1.1: Generate n_samples latents ..
         # print(n_samples, 128)
-        samples = torch.randn((n_samples, 128,)) # torch.normal(torch.zeros((n_samples, 128)), torch.ones((n_samples, 128))).to(device = ("cuda" if torch.cuda.is_available() else "cpu"))
+        samples = torch.randn((n_samples, 128,)).to(device = ("cuda" if torch.cuda.is_available() else "cpu"))
+        # torch.normal(torch.zeros((n_samples, 128)), torch.ones((n_samples, 128)))
+        # .to(device = ("cuda" if torch.cuda.is_available() else "cpu"))
         # todo say .half()?
         # .. and forward through the network.
+        # samples = samples.half()
         samples = self.forward_given_samples(samples)
         return samples
         # Make sure to cast the latents to type half (for compatibility with torch.cuda.amp.autocast)

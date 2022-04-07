@@ -18,14 +18,18 @@ def ae_loss(model, x):
     TODO 2.1.2: fill in MSE loss between x and its reconstruction. 
     return loss, {recon_loss = loss} 
     """
+
+    loss = (model(x) - x) ** 2
+    loss = loss.mean()
     
     return loss, OrderedDict(recon_loss=loss)
 
 def vae_loss(model, x, beta = 1):
     """TODO 2.2.2 : Fill in recon_loss and kl_loss. """
 
-    recon_loss = ...
-    kl_loss = ...
+    recon_loss = (model(x) - x) ** 2
+    recon_loss = recon_loss.mean()
+    kl_loss = 0.
 
     total_loss = recon_loss + beta*kl_loss
     return total_loss, OrderedDict(recon_loss=recon_loss, kl_loss=kl_loss)
