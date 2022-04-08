@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data as data
 import torch.optim as optim
+import ipdb
 
 class Encoder(nn.Module):
     def __init__(self, input_shape, latent_dim):
@@ -35,7 +36,8 @@ class Encoder(nn.Module):
         self.fc = nn.Linear(self.conv_out_dim, self.latent_dim)
 
     def forward(self, x):
-        return self.fc(self.convs(x))
+        # ipdb.set_trace()
+        return self.fc(self.convs(x).view(-1, self.conv_out_dim))
         #TODO 2.1.1 : forward pass through the network, output should be of dimension : self.latent_dim
 
 
@@ -43,7 +45,7 @@ class VAEEncoder(Encoder):
     def __init__(self, input_shape, latent_dim):
         super().__init__(input_shape, latent_dim)
         #TODO 2.2.1: fill in self.fc, such that output dimension is 2*self.latent_dim
-        self.fc = nn.Linear(input_shape, 2 * self.latent_dim)
+        self.fc = nn.Linear(np.prod(input_shape), 2 * self.latent_dim)
     
     def forward(self, x):
         #TODO 2.2.1: forward pass through the network.
@@ -58,7 +60,9 @@ class Decoder(nn.Module):
         self.output_shape = output_shape
 
         #TODO 2.1.1: fill in self.base_size
-        self.base_size = 128
+        # self.base_size = 128
+        # self.base_size = (128, 4, 4)
+        self.base_size = 128*8
         self.fc = nn.Linear(latent_dim, np.prod(self.base_size))
         
         """
@@ -85,7 +89,7 @@ class Decoder(nn.Module):
                 nn.Conv2d(32, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)))
 
     def forward(self, z):
-        return self.deconvs(self.fc(z))
+        return self.deconvs(self.fc(z).view(128,128,4,4))
         #TODO 2.1.1: forward pass through the network, first through self.fc, then self.deconvs.
 
 class AEModel(nn.Module):

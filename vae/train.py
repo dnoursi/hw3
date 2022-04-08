@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 import time
 import os
 from utils import *
+import ipdb
 
 def ae_loss(model, x):
     """ 
@@ -19,7 +20,8 @@ def ae_loss(model, x):
     return loss, {recon_loss = loss} 
     """
 
-    loss = (model(x) - x) ** 2
+    # ipdb.set_trace()
+    loss = (model.decoder(model.encoder(x)) - x[:128]) ** 2
     loss = loss.mean()
     
     return loss, OrderedDict(recon_loss=loss)
@@ -27,9 +29,12 @@ def ae_loss(model, x):
 def vae_loss(model, x, beta = 1):
     """TODO 2.2.2 : Fill in recon_loss and kl_loss. """
 
-    recon_loss = (model(x) - x) ** 2
+    recon_loss = (model.decoder(model.encoder(x)) - x) ** 2
+     # bce?
     recon_loss = recon_loss.mean()
-    kl_loss = 0.
+
+    encode = model.encoder(x)
+    kl_loss = - .5 * (1. + encode.var().log() + encode.mean() ** 2 - encode.var().log().exp())
 
     total_loss = recon_loss + beta*kl_loss
     return total_loss, OrderedDict(recon_loss=recon_loss, kl_loss=kl_loss)
@@ -44,7 +49,8 @@ def linear_beta_scheduler(max_epochs=None, target_val = 1):
     """TODO 2.3.2 : Fill in helper. The value returned should increase linearly 
     from 0 at epoch 0 to target_val at epoch max_epochs """
     def _helper(epoch):
-       ...
+        return target_val * epoch / max_epochs 
+    #    ...
     return _helper
 
 def run_train_epoch(model, loss_mode, train_loader, optimizer, beta = 1, grad_clip = 1):
@@ -118,11 +124,11 @@ def main(log_dir, loss_mode = 'vae', beta_mode = 'constant', num_epochs = 20, ba
 if __name__ == '__main__':
     #TODO: Experiments to run : 
     #2.1 - Auto-Encoder
-    #Run for latent_sizes 16, 128 and 1024
-    #main('ae_latent1024', loss_mode = 'ae',  num_epochs = 20, latent_size = 1024)
+    # Run for latent_sizes 16, 128 and 1024
+    # main('ae_latent1024', loss_mode = 'ae',  num_epochs = 20, latent_size = 1024)
 
     #Q 2.2 - Variational Auto-Encoder
-    #main('vae_latent1024', loss_mode = 'vae', num_epochs = 20, latent_size = 1024)
+    main('vae_latent1024', loss_mode = 'vae', num_epochs = 20, latent_size = 1024)
 
     #Q 2.3.1 - Beta-VAE (constant beta)
     #Run for beta values 0.8, 1.2

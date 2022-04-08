@@ -28,13 +28,23 @@ def get_optimizers_and_schedulers(gen, disc):
     # The learning rate for the generator should be decayed to 0 over 100K steps.
 
     optim_discriminator  = torch.optim.Adam(disc.parameters(), betas=[0., 0.9], lr=0.0002)
-    scheduler_discriminator = torch.optim.lr_scheduler.StepLR(
-        optim_discriminator, step_size = 5e2, gamma = 0.99) #, last_epoch = 10) #, initial_lr=0.0002)
+    scheduler_discriminator = torch.optim.lr_scheduler.LambdaLR(
+        optim_discriminator, lambda iter : 1. - (iter / 10e5)
+    )
+    # scheduler_discriminator = torch.optim.lr_scheduler.StepLR(
+    #     optim_discriminator, step_size = 5e2, gamma = 0.99) #, last_epoch = 10) #, initial_lr=0.0002)
+    # scheduler_discriminator = torch.optim.lr_scheduler.LinearLR(
+    #     optim_discriminator, 1., 0., 5e5) #, last_epoch = 10) #, initial_lr=0.0002)
+        
     optim_generator  = torch.optim.Adam(gen.parameters(), betas=[0., 0.9], lr=0.0002)
-    scheduler_generator = torch.optim.lr_scheduler.StepLR(
-        optim_generator, step_size = 1e2, gamma = 0.99) #, last_epoch = 10)
-        # LinearLR(discriminator,1,0, 1e5)
-        # LinearLR(generator,1,0, 5e5)
+    scheduler_generator = torch.optim.lr_scheduler.LambdaLR(
+        optim_generator, lambda iter : 1. - (iter / 2e5)
+    )
+    # scheduler_generator = torch.optim.lr_scheduler.StepLR(
+    #     optim_generator, step_size = 1e2, gamma = 0.99) #, last_epoch = 10)
+    # scheduler_generator = torch.optim.lr_scheduler.LinearLR(
+    #     optim_generator, 1., 0., 1e5) #, last_epoch = 10)
+
     return (
         optim_discriminator,
         scheduler_discriminator,
@@ -115,13 +125,15 @@ def train_model(
                     ipdb.set_trace()
                 eps = torch.randn((1,)).item()#.to(device = ("cuda" if torch.cuda.is_available() else "cpu")) # torch.normal(0.,1.,(1,))
                 # interp = eps * fake_data.detach() + (1-eps) * train_batch
-                interp = eps * fake_data + (1-eps) * train_batch
+                interp = eps * fake_data + (1.-eps) * train_batch
                 discrim_interp = disc.forward(interp)
+                # discrim_interp = disc.forward(interp.detach())
 
                 discriminator_loss = disc_loss_fn(
                     discrim_real, discrim_fake, discrim_interp, interp, lamb
                 )
             optim_discriminator.zero_grad(set_to_none=True)
+            # ipdb.set_trace()
             scaler.scale(discriminator_loss).backward()
             scaler.step(optim_discriminator)
             scheduler_discriminator.step()
@@ -130,11 +142,15 @@ def train_model(
                 # with torch.cuda.amp.autocast(enabled=False):
                 with torch.cuda.amp.autocast():
                     # TODO 1.2: Compute samples and evaluate under discriminator.
-                    # fake_data = gen.forward(train_batch.shape[0])
+
+                    # these two apparently swap for {1.3, 1.4}, vs 1.5 .. ?
+                    fake_data = gen.forward(train_batch.shape[0])
                     # fake_data = gen.forward()
+                    
                     discrim_fake = disc.forward(fake_data)
                     generator_loss = gen_loss_fn(discrim_fake)
                 optim_generator.zero_grad(set_to_none=True)
+                # ipdb.set_trace()
                 scaler.scale(generator_loss).backward()
                 scaler.step(optim_generator)
                 scheduler_generator.step()
@@ -154,14 +170,6 @@ def train_model(
                         prefix + "samples_{}.png".format(iters),
                         nrow=10,
                     )
-                    save_plot(
-                        iters_list,
-                        fids_list,
-                        xlabel="Iterations",
-                        ylabel="FID",
-                        title="FID vs Iterations",
-                        filename=prefix + "fid_vs_iterations",
-                    )
                     if iters % log_period == 0:
                     # torch.jit.save(gen, prefix + "/generator.pt")
                         # torch.jit.save(disc, prefix + "/discriminator.pt")
@@ -179,6 +187,15 @@ def train_model(
                         print("Num total iters is", num_iterations)
                         fids_list.append(fid)
                         iters_list.append(iters)
+                        
+                        save_plot(
+                            iters_list,
+                            fids_list,
+                            xlabel="Iterations",
+                            ylabel="FID",
+                            title="FID vs Iterations",
+                            filename=prefix + "fid_vs_iterations",
+                        )
 
                         interpolate_latent_space(
                             gen, prefix + "interpolations_{}.png".format(iters)

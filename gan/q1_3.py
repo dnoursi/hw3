@@ -17,23 +17,26 @@ def compute_discriminator_loss(
 
     # need both values between 0 and 1, so use sigmoid, negate, mean
 
-    # loss = F.binary_cross_entropy_with_logits(discrim_real, torch.ones_like(discrim_real)) 
-    # loss += F.binary_cross_entropy_with_logits(discrim_fake, torch.zeros_like(discrim_fake))
-    # loss = F.binary_cross_entropy_with_logits(discrim_real, torch.ones_like(discrim_real)) 
-    # loss += F.binary_cross_entropy_with_logits(discrim_fake, torch.zeros_like(discrim_fake))
-    # loss = loss.mean()
+    # loss = F.binary_cross_entropy_with_logits(discrim_real, torch.zeros_like(discrim_real)) 
+    # loss += F.binary_cross_entropy_with_logits(discrim_fake, torch.ones_like(discrim_fake))
+    loss = F.binary_cross_entropy_with_logits(discrim_real, torch.ones_like(discrim_real)) 
+    loss += F.binary_cross_entropy_with_logits(discrim_fake, torch.zeros_like(discrim_fake))
+    loss = loss.mean()
+    return loss
     # return - loss
 
     # return - nn.BCEWithLogitsLoss(real, ones) (fake,zeros)
     # return -(F.logsigmoid(discrim_real) + F.logsigmoid(1. - discrim_fake)).mean()
-    return -(torch.log(discrim_real) + torch.log(1. - discrim_fake)).mean()
+    # return (torch.log(discrim_real) + torch.log(1. - discrim_fake)).mean()
     # return -(discrim_real * torch.log(discrim_real) + (1. - discrim_fake) * torch.log(1. - discrim_fake)).mean()
     # pass
 
 
 def compute_generator_loss(discrim_fake):
     # TODO 1.3.1: Implement GAN loss for generator.
-    # return torch.log(1. - discrim_fake).mean()
+    # return - torch.log(1. - discrim_fake).mean()
+    return - F.logsigmoid(discrim_fake).mean()
+    # return - torch.log(discrim_fake).mean()
     # bce_logits(real)
     loss = F.binary_cross_entropy_with_logits(discrim_fake, torch.zeros_like(discrim_fake))
     loss = loss.mean()
