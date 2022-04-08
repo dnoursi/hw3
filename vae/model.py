@@ -45,13 +45,15 @@ class VAEEncoder(Encoder):
     def __init__(self, input_shape, latent_dim):
         super().__init__(input_shape, latent_dim)
         #TODO 2.2.1: fill in self.fc, such that output dimension is 2*self.latent_dim
-        self.fc = nn.Linear(np.prod(input_shape), 2 * self.latent_dim)
+        # self.fc = nn.Linear(np.prod(input_shape), 2 * self.latent_dim)
+        self.fc = nn.Linear(self.conv_out_dim, 2 * self.latent_dim)
     
     def forward(self, x):
         #TODO 2.2.1: forward pass through the network.
         # should return a tuple of 2 tensors, each of dimension self.latent_dim
-        x = self.fc(x)
-        return (x[:self.latent_dim], x[self.latent_dim:])
+        x= self.fc(self.convs(x).view(-1, self.conv_out_dim))
+        # x = self.fc(x)
+        return (x[:, :self.latent_dim], x[:, self.latent_dim:])
 
 class Decoder(nn.Module):
     def __init__(self, latent_dim, output_shape):
@@ -62,7 +64,10 @@ class Decoder(nn.Module):
         #TODO 2.1.1: fill in self.base_size
         # self.base_size = 128
         # self.base_size = (128, 4, 4)
+
+        # swap these two!
         self.base_size = 128*8
+        # self.base_size = output_shape[1:3]
         self.fc = nn.Linear(latent_dim, np.prod(self.base_size))
         
         """

@@ -29,14 +29,24 @@ def ae_loss(model, x):
 def vae_loss(model, x, beta = 1):
     """TODO 2.2.2 : Fill in recon_loss and kl_loss. """
 
-    recon_loss = (model.decoder(model.encoder(x)) - x) ** 2
+    mu, logstd = model.encoder(x)
+    eps = torch.randn(logstd.shape)
+    #(torch.zeros_like(logstd), torch.ones_like(logstd))
+    # ipdb.set_trace()
+    sample = mu + eps * logstd.exp()
+    # recon_loss = (model.decoder(model.encoder(x)) - x) ** 2
+    recon_loss = (model.decoder(mu) - x[:128]) ** 2
      # bce?
     recon_loss = recon_loss.mean()
 
-    encode = model.encoder(x)
-    kl_loss = - .5 * (1. + encode.var().log() + encode.mean() ** 2 - encode.var().log().exp())
+    # encode = model.encoder(x)
+    # kl_loss = - .5 * (1. + encode.var().log() + encode.mean() ** 2 - encode.var().log().exp())
+
+    kl_loss = - .5 * (1. + logstd + mu ** 2 - logstd.exp())
+    kl_loss = kl_loss.mean()
 
     total_loss = recon_loss + beta*kl_loss
+
     return total_loss, OrderedDict(recon_loss=recon_loss, kl_loss=kl_loss)
 
 
@@ -57,6 +67,7 @@ def run_train_epoch(model, loss_mode, train_loader, optimizer, beta = 1, grad_cl
     model.train()
     all_metrics = []
     for x, _ in train_loader:
+        # print("looping")
         x = preprocess_data(x)
         if loss_mode == 'ae':
             loss, _metric = ae_loss(model, x)
@@ -94,7 +105,7 @@ def main(log_dir, loss_mode = 'vae', beta_mode = 'constant', num_epochs = 20, ba
     train_loader, val_loader = get_dataloaders()
 
     variational = True if loss_mode == 'vae' else False
-    model = AEModel(variational, latent_size, input_shape = (3, 32, 32)).cuda()
+    model = AEModel(variational, latent_size, input_shape = (3, 32, 32)).to(device = ("cuda" if torch.cuda.is_available() else "cpu"))
     optimizer = optim.Adam(model.parameters(), lr=lr)
     
     vis_x = next(iter(val_loader))[0][:36]
@@ -125,10 +136,10 @@ if __name__ == '__main__':
     #TODO: Experiments to run : 
     #2.1 - Auto-Encoder
     # Run for latent_sizes 16, 128 and 1024
-    # main('ae_latent1024', loss_mode = 'ae',  num_epochs = 20, latent_size = 1024)
+    main('ae_latent1024', loss_mode = 'ae',  num_epochs = 20, latent_size = 1024)
 
     #Q 2.2 - Variational Auto-Encoder
-    main('vae_latent1024', loss_mode = 'vae', num_epochs = 20, latent_size = 1024)
+    # main('vae_latent1024', loss_mode = 'vae', num_epochs = 20, latent_size = 1024)
 
     #Q 2.3.1 - Beta-VAE (constant beta)
     #Run for beta values 0.8, 1.2
