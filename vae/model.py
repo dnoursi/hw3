@@ -66,7 +66,7 @@ class Decoder(nn.Module):
         # self.base_size = (128, 4, 4)
 
         # swap these two!
-        self.base_size = 128*8
+        self.base_size = 128*8 *2
         # self.base_size = output_shape[1:3]
         self.fc = nn.Linear(latent_dim, np.prod(self.base_size))
         
@@ -94,7 +94,9 @@ class Decoder(nn.Module):
                 nn.Conv2d(32, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)))
 
     def forward(self, z):
-        return self.deconvs(self.fc(z).view(128,128,4,4))
+        return self.deconvs(self.fc(z).view(-1,128,4,4)) #128,128
+            # return self.deconvs(self.fc(z).view(256,128,4,4)) #128,128
+        # return self.deconvs(self.fc(z).view(32,32,7,7))
         #TODO 2.1.1: forward pass through the network, first through self.fc, then self.deconvs.
 
 class AEModel(nn.Module):

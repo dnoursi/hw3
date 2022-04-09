@@ -65,6 +65,10 @@ def vis_recons(model, x, _file):
     with torch.no_grad():
        
         x = preprocess_data(x)
+        # if tuple(x.size()) != (256,3,32,32):
+        #     print("not visualizing!", x.size())
+        #     return
+
         enc_out = model.encoder(x)
         if type(enc_out) is tuple:
             z = enc_out[0]
@@ -73,6 +77,7 @@ def vis_recons(model, x, _file):
         x_recon = torch.clamp(model.decoder(z), -1, 1)
     
     reconstructions = torch.stack((x, x_recon), dim=1).view(-1, 3, 32, 32) * 0.5 + 0.5  
+    # reconstructions = torch.stack((x[:128], x_recon), dim=1).view(-1, 3, 32, 32) * 0.5 + 0.5  
     reconstructions = reconstructions.permute(0, 2, 3, 1).cpu().numpy() * 255
 
     save_samples(reconstructions, _file+'_recons.png')
